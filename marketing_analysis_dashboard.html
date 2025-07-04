@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Analisi Impatto Marketing</title>
+    <!-- Librerie Esterne -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --dark-color: #2c3e50;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --text-color: #333;
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.07);
+            --border-radius: 12px;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 2.2rem; font-weight: 600; }
+        .header p { margin: 10px 0 0; opacity: 0.9; }
+        
+        .main-controls {
+            padding: 30px;
+            background: #fff;
+            border-bottom: 1px solid var(--medium-gray);
+            text-align: center;
+        }
+        .upload-button {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        #status { margin-top: 15px; font-weight: 500; color: var(--dark-color); min-height: 24px; }
+        
+        .content { padding: 30px; }
+        .section {
+            background: #fff;
+            border: 1px solid var(--medium-gray);
+            border-radius: var(--border-radius);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        .section-header {
+            background-color: var(--light-gray);
+            padding: 20px;
+            border-bottom: 1px solid var(--medium-gray);
+        }
+        .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--dark-color); }
+        .section-header p { margin: 5px 0 0; color: #666; }
+        .section-content { padding: 20px; }
+        
+        .tabs { display: flex; border-bottom: 1px solid var(--medium-gray); }
+        .tab-button {
+            padding: 12px 20px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #555;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; padding-top: 20px; }
+        
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* A single column */
+            gap: 60px; /* Increased gap */
+            justify-items: center;
+        }
+        .chart-container { 
+             min-height: 1000px; /* Increased height */
+             width: 1000px; /* Fixed width */
+        }
+        .vif-table { width: 100%; border-collapse: collapse; }
+        .vif-table th, .vif-table td {
+            padding: 12px;
+            border: 1px solid var(--medium-gray);
+            text-align: left;
+        }
+        .vif-table th { background-color: var(--light-gray); }
+        .vif-high { background-color: #f8d7da; color: #721c24; font-weight: bold; }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--light-gray);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+        }
+        .stat-card h3 { margin: 0 0 10px; font-size: 1.1rem; color: #555; }
+        .stat-card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--dark-color);
+        }
+        .stat-card .improvement { font-weight: 600; }
+        .positive { color: #28a745; }
+        .negative { color: #dc3545; }
+        
+        .lag-table { width: 100%; border-collapse: collapse; }
+        .lag-table th, .lag-table td { padding: 12px; border: 1px solid var(--medium-gray); text-align: left; }
+        .lag-table th { background-color: var(--light-gray); }
+        
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Dashboard di Analisi Impatto Marketing</h1>
+            <p>Carica il tuo file per visualizzare correlazioni, modelli di regressione e lag temporali ottimali.</p>
+        </header>
+
+        <main>
+            <div class="main-controls">
+                <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+                <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                    Carica File Excel
+                </button>
+                <div id="status">Pronto per l'analisi.</div>
+            </div>
+
+            <div class="content" id="output" style="display:none;">
+                <!-- Sezione 1: Analisi di Correlazione -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>1. Analisi di Correlazione</h2>
+                        <p><strong>Obiettivo:</strong> Capire come le diverse metriche di marketing e vendita si muovono insieme, sia immediatamente (Lag 0) che a breve termine (Lag 1 e 3 giorni).<br>
+                           <strong>Tecnica:</strong> Vengono calcolate due matrici di correlazione: <strong>Pearson</strong>, che misura le relazioni lineari (es. se una metrica aumenta, l'altra aumenta o diminuisce costantemente), e <strong>Spearman</strong>, che misura le relazioni monotoniche (se una metrica aumenta, l'altra tende ad aumentare o diminuire, anche in modo non costante). I valori vicini a 1 (rosso) indicano una forte correlazione positiva, quelli vicini a -1 (blu) una forte correlazione negativa.</p>
+                    </div>
+                    <div class="section-content">
+                        <div class="tabs">
+                            <button class="tab-button active" onclick="openTab(event, 'lag0')">Lag 0</button>
+                            <button class="tab-button" onclick="openTab(event, 'lag1')">Lag 1 Giorno</button>
+                            <button class="tab-button" onclick="openTab(event, 'lag3')">Lag 3 Giorni</button>
+                        </div>
+                        <div id="lag0" class="tab-content active">
+                            <div class="chart-grid">
+                                <div id="corr-pearson-0" class="chart-container"></div>
+                                <div id="corr-spearman-0" class="chart-container"></div>
+                            </div>
+                        </div>
+                        <div id="lag1" class="tab-content">
+                            <div class="chart-grid">
+                                <div id="corr-pearson-1" class="chart-container"></div>
+                                <div id="corr-spearman-1" class="chart-container"></div>
+                            </div>
+                        </div>
+                        <div id="lag3" class="tab-content">
+                            <div class="chart-grid">
+                                <div id="corr-pearson-3" class="chart-container"></div>
+                                <div id="corr-spearman-3" class="chart-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sezione 2: Regressione Lineare Base -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>2. Modello di Regressione Lineare Base</h2>
+                        <p><strong>Obiettivo:</strong> Creare un primo modello statistico per stimare l'impatto immediato (senza ritardi) delle vere leve di marketing (spese, visite, promozioni) sulle vendite totali.<br>
+                           <strong>Tecnica:</strong> Si utilizza una <strong>Regressione Lineare Multipla</strong>. Il modello cerca di trovare una formula matematica che combini le leve di marketing per predire al meglio le vendite. L'<strong>R-Quadro (R²)</strong> ci dice quale percentuale della variazione delle vendite è spiegata dal modello.</p>
+                    </div>
+                    <div class="section-content">
+                        <div class="results-grid">
+                            <div class="stat-card">
+                                <h3>R-Quadro (R²)</h3>
+                                <div id="base-r2" class="value">N/D</div>
+                            </div>
+                            <div class="stat-card">
+                                <h3>Errore Quadratico Medio (MSE)</h3>
+                                <div id="base-mse" class="value">N/D</div>
+                            </div>
+                        </div>
+                        <div class="chart-grid">
+                            <div id="base-pred-actual" class="chart-container"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sezione 3: Analisi VIF -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>3. Analisi di Multicollinearità (VIF)</h2>
+                        <p><strong>Obiettivo:</strong> Verificare la stabilità del nostro modello. Vogliamo assicurarci che le nostre leve di marketing non siano troppo simili tra loro, altrimenti sarebbe difficile capire il contributo unico di ciascuna.<br>
+                           <strong>Tecnica:</strong> Si calcola il <strong>Variance Inflation Factor (VIF)</strong> per ogni leva. Un valore VIF superiore a 5 (o 10 in alcuni casi) è un campanello d'allarme: indica che la variabile è altamente correlata con le altre e potrebbe rendere i risultati del modello inaffidabili.</p>
+                    </div>
+                    <div class="section-content">
+                        <div id="vif-analysis-container"></div>
+                    </div>
+                </section>
+
+                <!-- Sezione 4: Regressione Ottimizzata -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>4. Modello di Regressione Ottimizzato con Lag Dinamici</h2>
+                        <p><strong>Obiettivo:</strong> Costruire il modello più potente e realistico. L'impatto di un'azione di marketing non è sempre immediato. Questa analisi trova automaticamente il ritardo temporale (lag) ottimale per ogni singola leva, per massimizzare la capacità del modello di prevedere le vendite.<br>
+                           <strong>Tecnica:</strong> Un algoritmo iterativo testa per ogni leva di marketing un ritardo da 0 a 14 giorni. Seleziona la combinazione di lag che produce il più alto <strong>R-Quadro (R²)</strong>, dandoci il modello più accurato possibile.</p>
+                    </div>
+                    <div class="section-content">
+                        <div class="results-grid">
+                            <div class="stat-card">
+                                <h3>R-Quadro Ottimizzato (R²)</h3>
+                                <div id="opt-r2" class="value">N/D</div>
+                                <div id="opt-r2-improvement" class="improvement"></div>
+                            </div>
+                            <div class="stat-card">
+                                <h3>Errore Quadratico Medio (MSE)</h3>
+                                <div id="opt-mse" class="value">N/D</div>
+                                <div id="opt-mse-improvement" class="improvement"></div>
+                            </div>
+                        </div>
+                        <div class="chart-grid">
+                            <div id="opt-lags-container"></div>
+                            <div id="opt-pred-actual" class="chart-container"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sezione 5: Key Insights & Raccomandazioni -->
+                <section class="section">
+                    <div class="section-header">
+                        <h2>5. Key Insights & Raccomandazioni Strategiche</h2>
+                        <p>Questa sezione interpreta automaticamente i risultati del modello ottimizzato per fornirti spunti azionabili.</p>
+                    </div>
+                    <div class="section-content" id="insights-container">
+                        <!-- I Key Insights verranno generati qui -->
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    // --- UTILITIES ---
+    const $ = (selector) => document.querySelector(selector);
+    const statusEl = $('#status');
+    const outputEl = $('#output');
+
+    function showLoader(text) {
+        statusEl.innerHTML = `<div class="loader"></div><div>${text}</div>`;
+    }
+
+    function updateStatus(text, success = true) {
+        statusEl.textContent = text;
+        statusEl.style.color = success ? '#28a745' : '#dc3545';
+    }
+
+    function openTab(evt, tabName) {
+        let i, tabcontent, tablinks;
+        const parent = evt.target.closest('.section-content');
+        tabcontent = parent.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = parent.getElementsByClassName("tab-button");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        parent.querySelector('#' + tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    // --- MATRIX & STATS LIBRARY ---
+    // A simple matrix library to handle linear algebra
+    const mat = {
+        dot: (A, B) => A.map((row, i) => B[0].map((_, j) => row.reduce((acc, _, k) => acc + A[i][k] * B[k][j], 0))),
+        transpose: A => A[0].map((_, i) => A.map(row => row[i])),
+        // Invert a 2x2 matrix
+        inv2: A => {
+            const det = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+            if (det === 0) return null;
+            return [[A[1][1] / det, -A[0][1] / det], [-A[1][0] / det, A[0][0] / det]];
+        },
+        // Invert a matrix using Gaussian elimination (for simplicity, we'll use a library-like approach)
+        // This is a complex function. For this use case, we'll implement a simplified version.
+        // A full implementation is beyond the scope of a single script.
+        // We will use a simplified approach assuming the user's data won't require a complex inverse.
+        // A more robust solution would use a numeric.js or similar library.
+        inv: (A) => {
+            const n = A.length;
+            const identity = Array(n).fill(0).map((_, i) => Array(n).fill(0).map((__, j) => i === j ? 1 : 0));
+            const C = A.map((row, i) => [...row, ...identity[i]]);
+
+            for (let i = 0; i < n; i++) {
+                let pivot = i;
+                while (pivot < n && C[pivot][i] === 0) pivot++;
+                if (pivot === n) continue;
+                [C[i], C[pivot]] = [C[pivot], C[i]];
+                const div = C[i][i];
+                for (let j = i; j < 2 * n; j++) C[i][j] /= div;
+                for (let k = 0; k < n; k++) {
+                    if (i === k) continue;
+                    const mult = C[k][i];
+                    for (let j = i; j < 2 * n; j++) C[k][j] -= mult * C[i][j];
+                }
+            }
+            return C.map(row => row.slice(n));
+        }
+    };
+
+    const stats = {
+        mean: arr => arr.reduce((a, b) => a + b, 0) / arr.length,
+        sum: arr => arr.reduce((a, b) => a + b, 0),
+        variance: (arr, mean) => arr.reduce((a, b) => a + (b - mean) ** 2, 0),
+        
+        pearson: (x, y) => {
+            const meanX = stats.mean(x);
+            const meanY = stats.mean(y);
+            const n = x.length;
+            let num = 0, den1 = 0, den2 = 0;
+            for (let i = 0; i < n; i++) {
+                num += (x[i] - meanX) * (y[i] - meanY);
+                den1 += (x[i] - meanX) ** 2;
+                den2 += (y[i] - meanY) ** 2;
+            }
+            if (den1 === 0 || den2 === 0) return 0; // Handle zero variance case
+            return num / Math.sqrt(den1 * den2);
+        },
+
+        spearman: (x, y) => {
+            const rank = arr => {
+                const sorted = [...arr].map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
+                const ranks = new Array(arr.length);
+                sorted.forEach((v, i) => { ranks[v[1]] = i + 1; });
+                return ranks;
+            };
+            const rankX = rank(x);
+            const rankY = rank(y);
+            return stats.pearson(rankX, rankY);
+        },
+
+        linearRegression: (X, y) => {
+            try {
+                const n = X.length;
+                const X_b = X.map(row => [1, ...row]); // Add intercept term
+                const Xt = mat.transpose(X_b);
+                const XtX = mat.dot(Xt, X_b);
+                const XtX_inv = mat.inv(XtX);
+                if (!XtX_inv.every(row => row.every(val => isFinite(val)))) {
+                     throw new Error("Matrix is singular, cannot be inverted. Check for perfect multicollinearity.");
+                }
+                const Xty = mat.dot(Xt, y.map(val => [val]));
+                const coeffs = mat.dot(XtX_inv, Xty).map(row => row[0]);
+                
+                const y_pred = mat.dot(X_b, coeffs.map(c => [c])).map(row => row[0]);
+                const y_mean = stats.mean(y);
+                
+                const ss_tot = stats.variance(y, y_mean);
+                const ss_res = y.reduce((acc, val, i) => acc + (val - y_pred[i]) ** 2, 0);
+                
+                const r2 = 1 - (ss_res / ss_tot);
+                const mse = ss_res / n;
+
+                return { coeffs, r2, mse, y_pred };
+            } catch (e) {
+                console.error("Regression failed:", e);
+                updateStatus(`Regression failed: ${e.message}. Le variabili potrebbero essere troppo correlate.`, false);
+                return null;
+            }
+        }
+    };
+
+    // --- CORE ANALYSIS LOGIC ---
+    document.getElementById('fileInput').addEventListener('change', handleFile);
+
+    async function handleFile(e) {
+        console.log('handleFile: Function started.');
+        const file = e.target.files[0];
+        
+        if (!file) {
+            console.log('handleFile: No file selected or file input cancelled.');
+            updateStatus('Nessun file selezionato.', false);
+            return;
+        }
+        
+        console.log('handleFile: File selected:', file.name, 'Type:', file.type, 'Size:', file.size, 'bytes');
+        
+        outputEl.style.display = 'none';
+        showLoader('Lettura del file Excel...');
+
+        try {
+            console.log('handleFile: Attempting to read file as ArrayBuffer...');
+            const data = await file.arrayBuffer();
+            console.log('handleFile: File ArrayBuffer read successfully. Size:', data.byteLength, 'bytes');
+            
+            console.log('handleFile: Attempting to parse workbook with XLSX.read...');
+            const workbook = XLSX.read(data);
+            console.log('handleFile: Workbook parsed successfully. Sheet names:', workbook.SheetNames);
+            
+            if (workbook.SheetNames.length === 0) {
+                throw new Error("Il file Excel non contiene fogli di lavoro.");
+            }
+
+            const worksheetName = workbook.SheetNames[0];
+            console.log('handleFile: Using first worksheet:', worksheetName);
+            const worksheet = workbook.Sheets[worksheetName];
+            
+            console.log('handleFile: Converting worksheet to JSON...');
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            console.log('handleFile: JSON data converted. Number of rows:', jsonData.length);
+            
+            if (jsonData.length === 0) {
+                throw new Error("Il foglio di lavoro selezionato è vuoto o non contiene dati validi.");
+            }
+
+            updateStatus('File letto. Avvio analisi...', true);
+            console.log('handleFile: Starting analysis...');
+            await runAnalysis(jsonData);
+
+        } catch (error) {
+            console.error('handleFile: Errore durante il caricamento o la lettura del file:', error);
+            updateStatus(`Errore nel caricamento del file: ${error.message}. Controlla che sia un file Excel valido e non vuoto.`, false);
+        }
+    }
+
+    async function runAnalysis(data) {
+        console.log('runAnalysis called with data length:', data.length);
+        try {
+            outputEl.style.display = 'block';
+
+            // 1. Prepare data
+            showLoader('1/5: Preparazione e pulizia dei dati...');
+            await new Promise(r => setTimeout(r, 50));
+            const { numericData, numericHeaders, targetVar, predictors, predictorHeaders } = prepareData(data);
+            if (!numericData || !targetVar || !predictors) throw new Error("La preparazione dei dati è fallita. Controlla i nomi delle colonne nel file Excel.");
+
+            // 2. Correlation Analysis
+            showLoader('2/5: Calcolo matrici di correlazione...');
+            await new Promise(r => setTimeout(r, 50));
+            runCorrelationAnalysis(numericData, numericHeaders);
+
+            // 3. Base Regression
+            showLoader('3/5: Esecuzione regressione lineare base...');
+            await new Promise(r => setTimeout(r, 50));
+            const baseModel = stats.linearRegression(predictors, targetVar);
+            if(!baseModel) throw new Error("La regressione base è fallita. Controllare la presenza di multicollinearità o problemi nei dati.");
+            displayBaseRegressionResults(baseModel, predictorHeaders, targetVar);
+
+            // 4. VIF Analysis
+            showLoader('4/5: Calcolo VIF per multicollinearità...');
+            await new Promise(r => setTimeout(r, 50));
+            const vifScores = calculateVIF(predictors, predictorHeaders);
+            if(vifScores) displayVIFResults(vifScores);
+
+            // 5. Optimized Lag Regression
+            showLoader('5/5: Ricerca lag ottimali e regressione finale (potrebbe richiedere tempo)...');
+            await new Promise(r => setTimeout(r, 50));
+            const optModel = findOptimalLags(numericData, targetVar, predictorHeaders);
+            if(!optModel) throw new Error("La regressione ottimizzata è fallita.");
+            displayOptimizedRegressionResults(optModel, baseModel, numericData, targetVar);
+
+            updateStatus('Analisi completata!', true);
+        } catch (error) {
+            console.error("Errore durante l'analisi:", error);
+            updateStatus(`ERRORE: ${error.message}`, false);
+        }
+    }
+
+    function prepareData(data) {
+        console.log('prepareData called');
+        const headers = Object.keys(data[0]);
+        const excludedCols = ['Data', 'MESE'];
+        const numericHeaders = headers.filter(h => !excludedCols.includes(h));
+        const binaryOrSparseCols = ['Promozioni solo shop', 'Invio Newsletter', 'Viralità Tik Tok'];
+
+        let numericData = data.map(row => {
+            const newRow = {};
+            numericHeaders.forEach(h => {
+                newRow[h] = parseFloat(row[h]) || 0; // Initial parsing and imputation for NaNs
+            });
+            return newRow;
+        });
+
+        // Impute with mean for continuous variables only
+        numericHeaders.forEach(h => {
+            if (binaryOrSparseCols.includes(h)) return; // Skip imputation for binary/sparse columns
+
+            const col = numericData.map(row => row[h]);
+            const mean = stats.mean(col.filter(v => v !== 0)); // Calculate mean excluding zeros
+            if (isNaN(mean)) return; // Skip if mean is not a number
+
+            numericData.forEach(row => {
+                if (row[h] === 0) row[h] = mean;
+            });
+        });
+
+        const targetHeader = '€ Venduto Totale';
+        
+        // Exclude all sales-related outcomes and conversion data to prevent leakage
+        const leakageCols = [
+            'N° Venduto Totale',
+            'N° Ordini solo shop',
+            '€ Venduto Shop',
+            'N° Ordini solo Amazon',
+            '€ Venduto Amazon',
+            'Dato conversione Meta',
+            'Dato conversione Google Ads'
+        ];
+
+        const predictorHeaders = numericHeaders.filter(h => 
+            h !== targetHeader && 
+            !leakageCols.includes(h) &&
+            !h.toLowerCase().includes('conversione')
+        );
+        
+        const targetVar = numericData.map(row => row[targetHeader]);
+        const predictors = numericData.map(row => predictorHeaders.map(h => row[h]));
+
+        return { numericData, numericHeaders, targetVar, predictors, predictorHeaders };
+    }
+
+    function runCorrelationAnalysis(data, headers) {
+        // Lag 0
+        const data0 = data.map(row => headers.map(h => row[h]));
+        plotCorrelations(data0, headers, 0);
+
+        // Lag 1
+        const data1 = lagData(data, headers, 1);
+        plotCorrelations(data1, headers, 1);
+
+        // Lag 3
+        const data3 = lagData(data, headers, 3);
+        plotCorrelations(data3, headers, 3);
+    }
+    
+    function lagData(originalData, headers, lag) {
+        const targetHeader = '€ Venduto Totale';
+        const lagged = [];
+        for (let i = lag; i < originalData.length; i++) {
+            const newRow = [];
+            headers.forEach(h => {
+                if (h === targetHeader) {
+                    newRow.push(originalData[i][h]); // Target variable is not lagged
+                } else {
+                    newRow.push(originalData[i - lag][h]); // Predictors are lagged
+                }
+            });
+            lagged.push(newRow);
+        }
+        return lagged;
+    }
+
+    function plotCorrelations(data, headers, lag) {
+        const n = headers.length;
+        const pearsonMatrix = Array(n).fill(0).map(() => Array(n).fill(0));
+        const spearmanMatrix = Array(n).fill(0).map(() => Array(n).fill(0));
+        
+        const columns = mat.transpose(data);
+
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                const p = stats.pearson(columns[i], columns[j]);
+                const s = stats.spearman(columns[i], columns[j]);
+                pearsonMatrix[i][j] = isNaN(p) ? 0 : p;
+                spearmanMatrix[i][j] = isNaN(s) ? 0 : s;
+            }
+        }
+
+        const createTriangularHeatmap = (matrix, title, elementId) => {
+            const z = [];
+            const annotations = [];
+            for (let i = 0; i < n; i++) {
+                const row = [];
+                for (let j = 0; j < n; j++) {
+                    if (i >= j) {
+                        row.push(matrix[i][j]);
+                        annotations.push({
+                            x: headers[j],
+                            y: headers[i],
+                            text: matrix[i][j].toFixed(2),
+                            showarrow: false,
+                            font: { 
+                                color: Math.abs(matrix[i][j]) > 0.6 ? 'white' : 'black',
+                                size: 10
+                            }
+                        });
+                    } else {
+                        row.push(null); // This creates the triangular effect
+                    }
+                }
+                z.push(row);
+            }
+
+            const layout = {
+                title: { text: title, font: { size: 24 } },
+                xaxis: { tickangle: -45, automargin: true },
+                yaxis: { automargin: true },
+                width: 1000,
+                height: 1000,
+                margin: { l: 200, r: 50, b: 200, t: 100 },
+                annotations,
+                plot_bgcolor: 'white' // Background for the grid effect
+            };
+
+            const plotData = [{
+                z: z,
+                x: headers,
+                y: headers,
+                type: 'heatmap',
+                colorscale: 'RdBu',
+                zmin: -1,
+                zmax: 1,
+                showscale: true,
+                xgap: 2, // Creates the white grid lines
+                ygap: 2  // Creates the white grid lines
+            }];
+
+            Plotly.newPlot(elementId, plotData, layout);
+        };
+
+        createTriangularHeatmap(pearsonMatrix, `Matrice di Correlazione di Pearson (Lag ${lag})`, `corr-pearson-${lag}`);
+        createTriangularHeatmap(spearmanMatrix, `Matrice di Correlazione di Spearman (Lag ${lag})`, `corr-spearman-${lag}`);
+    }
+
+    function displayBaseRegressionResults(model, headers, targetVar) {
+        $('#base-r2').textContent = model.r2.toFixed(3);
+        $('#base-mse').textContent = Math.round(model.mse).toLocaleString('it-IT');
+
+        // Rimosso grafico coefficienti
+
+        Plotly.newPlot('base-pred-actual', [{
+            x: targetVar,
+            y: model.y_pred,
+            mode: 'markers',
+            type: 'scatter'
+        }], {
+            title: 'Vendite Reali vs. Previste (Modello Base)',
+            xaxis: { title: 'Vendite Reali (€)' },
+            yaxis: { title: 'Vendite Previste (€)' }
+        });
+    }
+
+    function calculateVIF(predictors, headers) {
+        const vifScores = {};
+        const predictorCols = mat.transpose(predictors);
+
+        for (let i = 0; i < headers.length; i++) {
+            const y_vif = predictorCols[i];
+            const X_vif = predictors.map(row => row.filter((_, j) => i !== j));
+            
+            const vifModel = stats.linearRegression(X_vif, y_vif);
+            if (vifModel && vifModel.r2 < 1) { // r2=1 means perfect multicollinearity
+                vifScores[headers[i]] = 1 / (1 - vifModel.r2);
+            } else {
+                vifScores[headers[i]] = Infinity;
+            }
+        }
+        return vifScores;
+    }
+
+    function displayVIFResults(scores) {
+        let table = '<table class="vif-table"><tr><th>Leva di Marketing</th><th>Punteggio VIF</th></tr>';
+        for (const [header, score] of Object.entries(scores)) {
+            const isHigh = score > 5;
+            table += `<tr><td>${header}</td><td class="${isHigh ? 'vif-high' : ''}">${isFinite(score) ? score.toFixed(2) : 'Infinito'}</td></tr>`;
+        }
+        table += '</table>';
+        $('#vif-analysis-container').innerHTML = table;
+    }
+
+    function findOptimalLags(data, targetVar, predictorHeaders) {
+        const targetHeader = '€ Venduto Totale';
+        const maxLag = 14;
+        let bestLags = Object.fromEntries(predictorHeaders.map(h => [h, 0]));
+        let bestOverallR2 = -Infinity;
+
+        // This is a greedy forward search, computationally intensive
+        const availablePredictors = [...predictorHeaders];
+        const finalLags = {};
+
+        while(availablePredictors.length > 0) {
+            let bestVar = null, bestLagForVar = 0, bestR2ForStep = -Infinity;
+            
+            for (const predictor of availablePredictors) {
+                for (let lag = 0; lag <= maxLag; lag++) {
+                    const currentLags = {...finalLags, [predictor]: lag};
+                    const { X, y } = buildLaggedDataset(data, targetHeader, currentLags);
+                    if (X.length > 0) {
+                        const model = stats.linearRegression(X, y);
+                        if (model && model.r2 > bestR2ForStep) {
+                            bestR2ForStep = model.r2;
+                            bestVar = predictor;
+                            bestLagForVar = lag;
+                        }
+                    }
+                }
+            }
+            if (bestVar) {
+                finalLags[bestVar] = bestLagForVar;
+                availablePredictors.splice(availablePredictors.indexOf(bestVar), 1);
+            } else {
+                break; // No improvement found
+            }
+        }
+        
+        // Final model with optimal lags
+        const { X, y, finalHeaders } = buildLaggedDataset(data, targetHeader, finalLags, true);
+        const finalModel = stats.linearRegression(X, y);
+
+        return { ...finalModel, optimalLags: finalLags, headers: finalHeaders };
+    }
+
+    function buildLaggedDataset(data, targetHeader, lags, keepOrder = false) {
+        const predictorHeaders = Object.keys(lags);
+        const maxLag = Math.max(...Object.values(lags));
+        const X = [], y = [];
+
+        for (let i = maxLag; i < data.length; i++) {
+            const row = [];
+            predictorHeaders.forEach(h => {
+                row.push(data[i - lags[h]][h]);
+            });
+            X.push(row);
+            y.push(data[i][targetHeader]);
+        }
+        
+        return { X, y, finalHeaders: predictorHeaders };
+    }
+
+    function displayOptimizedRegressionResults(optModel, baseModel, numericData, targetVar) {
+        // Display stats
+        $('#opt-r2').textContent = optModel.r2.toFixed(3);
+        const r2_imp = ((optModel.r2 - baseModel.r2) / baseModel.r2) * 100;
+        $('#opt-r2-improvement').innerHTML = `<span class="${r2_imp > 0 ? 'positive' : 'negative'}">${r2_imp.toFixed(1)}%</span> vs Base`;
+        
+        $('#opt-mse').textContent = Math.round(optModel.mse).toLocaleString('it-IT');
+        const mse_imp = ((optModel.mse - baseModel.mse) / baseModel.mse) * 100;
+        $('#opt-mse-improvement').innerHTML = `<span class="${mse_imp < 0 ? 'positive' : 'negative'}">${mse_imp.toFixed(1)}%</span> vs Base`;
+
+        // Display optimal lags table
+        let table = '<table class="lag-table"><tr><th>Leva di Marketing</th><th>Lag Ottimale (Giorni)</th></tr>';
+        for (const [header, lag] of Object.entries(optModel.optimalLags)) {
+            table += `<tr><td>${header}</td><td>${lag}</td></tr>`;
+        }
+        table += '</table>';
+        $('#opt-lags-container').innerHTML = table;
+
+        // Rimosso grafico coefficienti
+
+        // Correctly align actual and predicted values
+        const maxLag = Math.max(...Object.values(optModel.optimalLags));
+        const actual_y_aligned = targetVar.slice(maxLag);
+
+        Plotly.newPlot('opt-pred-actual', [{
+            x: actual_y_aligned,
+            y: optModel.y_pred,
+            mode: 'markers',
+            type: 'scatter',
+            name: 'Dati'
+        }], {
+            title: 'Vendite Reali vs. Previste (Modello Ottimizzato)',
+            xaxis: { title: 'Vendite Reali (€)' },
+            yaxis: { title: 'Vendite Previste (€)' }
+        });
+
+        // Generate and display insights
+        generateInsights(optModel);
+    }
+
+    function generateInsights(optModel) {
+        const insightsContainer = document.getElementById('insights-container');
+        let html = '<h3>Analisi Dettagliata delle Leve di Marketing</h3>';
+
+        const results = optModel.headers.map((header, i) => ({
+            name: header,
+            coeff: optModel.coeffs[i + 1], // +1 to skip intercept
+            lag: optModel.optimalLags[header]
+        })).sort((a, b) => b.coeff - a.coeff);
+
+        // Leve più efficaci
+        const positiveLevers = results.filter(r => r.coeff > 0);
+        if (positiveLevers.length > 0) {
+            html += '<h4>🚀 Leve con Impatto Positivo Maggiore</h4>';
+            html += '<p>Queste sono le leve che, secondo il modello, contribuiscono maggiormente alle vendite. Il coefficiente indica l\'aumento stimato in vendite (€) per ogni unità di aumento della leva (es. per ogni euro speso in ads, o per ogni visita in più), tenendo conto del suo ritardo ottimale.</p>';
+            html += '<ul>';
+            positiveLevers.slice(0, 3).forEach(r => {
+                html += `<li><strong>${r.name}:</strong> Unità di questa leva hanno un impatto positivo stimato di <strong>€${r.coeff.toFixed(2)}</strong> sulle vendite, che si manifesta dopo <strong>${r.lag} giorni</strong>.</li>`;
+            });
+            html += '</ul>';
+        }
+
+        // Leve più veloci e lente
+        const fastestLevers = [...results].sort((a, b) => a.lag - b.lag);
+        html += '<h4>⏱️ Timing delle Leve: Le più Veloci e le più Lente</h4>';
+        html += '<p>Capire il timing è cruciale. Alcune leve hanno un effetto immediato, altre richiedono tempo per maturare e influenzare le decisioni d\'acquisto.</p>';
+        html += '<ul>';
+        html += `<li><strong>Leva più Veloce:</strong> L\'impatto di <strong>${fastestLevers[0].name}</strong> è quasi immediato (lag di ${fastestLevers[0].lag} giorni).</li>`;
+        html += `<li><strong>Leva più Lenta:</strong> L\'impatto di <strong>${fastestLevers[fastestLevers.length - 1].name}</strong> richiede più tempo per consolidarsi, manifestandosi dopo ${fastestLevers[fastestLevers.length - 1].lag} giorni.</li>`;
+        html += '</ul>';
+
+
+        // Leve con coefficienti negativi
+        const negativeLevers = results.filter(r => r.coeff < 0);
+        if (negativeLevers.length > 0) {
+            html += '<h4>🤔 Interpretazione delle Leve con Impatto Negativo</h4>';
+            html += '<p>Un coefficiente negativo non significa necessariamente che una leva sia dannosa. Spesso indica che il suo valore risiede in obiettivi a lungo termine non catturati dal modello (es. brand awareness, engagement) o che il suo costo immediato supera il ritorno diretto nel breve periodo. Potrebbe anche essere un artefatto statistico dovuto a correlazioni complesse con altre variabili più influenti.</p>';
+            html += '<ul>';
+            negativeLevers.forEach(r => {
+                html += `<li><strong>${r.name}:</strong> Mostra un coefficiente di ${r.coeff.toFixed(2)} con un lag di ${r.lag} giorni.</li>`;
+            });
+            html += '</ul>';
+        }
+
+        // Raccomandazioni
+        html += '<h3>💡 Raccomandazioni Strategiche</h3>';
+        html += '<ul>';
+        if (positiveLevers.length > 0) {
+             html += `<li><strong>Prioritizzare gli Investimenti:</strong> Concentrare le risorse su <strong>${positiveLevers[0].name}</strong>, che mostra l\'impatto positivo più elevato. Valutare un aumento del budget anche per ${positiveLevers.slice(1, 3).map(r => r.name).join(' e ')}.</li>`;
+        }
+        html += `<li><strong>Pianificazione Basata sul Timing:</strong> Sfruttare i lag ottimali. Ad esempio, le campagne basate su <strong>${fastestLevers[fastestLevers.length - 1].name}</strong> dovrebbero essere pianificate con almeno <strong>${fastestLevers[fastestLevers.length - 1].lag} giorni</strong> di anticipo per vederne il massimo effetto. Per <strong>${fastestLevers[0].name}</strong>, ci si può aspettare un riscontro quasi immediato.</li>`;
+        if (negativeLevers.length > 0) {
+            html += `<li><strong>Analisi Olistica dei Canali:</strong> Per canali come <strong>${negativeLevers.map(r => r.name).join(', ')}</strong>, che mostrano un coefficiente negativo, è fondamentale valutare il loro contributo tramite metriche non direttamente legate alla vendita immediata (es. visite al sito, crescita della community, menzioni del brand, valore del cliente nel tempo).</li>`;
+        }
+        html += '<li><strong>Monitoraggio Continuo:</strong> Usare questo modello come una baseline. I mercati e i comportamenti dei clienti cambiano. È consigliabile rieseguire questa analisi periodicamente (es. trimestralmente) per verificare se i lag e gli impatti delle leve di marketing si sono modificati.</li>';
+        html += '</ul>';
+
+
+        insightsContainer.innerHTML = html;
+    }
+
+    </script>
+</body>
+</html>
