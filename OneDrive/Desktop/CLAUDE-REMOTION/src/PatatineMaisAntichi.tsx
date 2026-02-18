@@ -7,7 +7,6 @@ import {
   useCurrentFrame,
   useVideoConfig,
   Easing,
-  Sequence,
 } from 'remotion';
 import { TransitionSeries, linearTiming, springTiming } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
@@ -17,20 +16,15 @@ import { wipe } from '@remotion/transitions/wipe';
 const GREEN_DARK = '#1a4a1a';
 const GREEN_MID = '#2d7a2d';
 const GOLD = '#d4a017';
+const GOLD_LIGHT = '#f0c040';
 const CREAM = '#fdf6e3';
 const WHITE = '#ffffff';
 
-// ─── Durate (30 fps · max 15s = 450 frame) ────────────────────────────────
-// Transizioni: 18 frame ciascuna → totale sottratto: 18 * 2 = 36
-// Totale scene: 450 + 36 = 486 → ma vogliamo stare a 450
-// Scene: 160 + 145 + 145 = 450; con 2 transizioni da 18 → 450 - 36 = 414? No:
-// Con TransitionSeries la durata totale = somma scene - somma transizioni
-// Vogliamo 450 frame: (S1 + S2 + S3) - (T1 + T2) = 450
-// 160 + 160 + 148 - 18 = 450 ✓ (2 transizioni da 9 → 160+160+148-9-9=450)
-const T = 9;    // transition frames (9 = 0.3s, molto snappy)
-const SCENE1 = 160; // 5.3s — Hero con foto prodotto + nome
-const SCENE2 = 160; // 5.3s — Dettaglio mais + qualità bio
-const SCENE3 = 148; // 4.9s — CTA con foto lifestyle
+// ─── Durate ────────────────────────────────────────────────────────────────
+const T = 9;
+const SCENE1 = 160;
+const SCENE2 = 160;
+const SCENE3 = 148;
 // Totale: 160 + 160 + 148 - 9 - 9 = 450 frame = 15s ✓
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -44,11 +38,11 @@ function useFade(from: number, dur = 20) {
   });
 }
 
-function useSlideUp(delay = 0, damping = 200) {
+function useSlideUp(delay = 0, damping = 200, distance = 80) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const s = spring({ frame: frame - delay, fps, config: { damping } });
-  return interpolate(s, [0, 1], [60, 0]);
+  return interpolate(s, [0, 1], [distance, 0]);
 }
 
 // ─── SCENE 1 – Hero ────────────────────────────────────────────────────────
@@ -57,26 +51,23 @@ const Scene1: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Ken Burns sulla foto: lieve zoom-in
   const imgScale = interpolate(frame, [0, SCENE1], [1, 1.08], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
   const overlayOpacity = useFade(0, 25);
-  const badgeY = useSlideUp(10, 200);
-  const badgeOpacity = useFade(10, 18);
-  const titleY = useSlideUp(25, 180);
-  const titleOpacity = useFade(25, 20);
-  const subtitleOpacity = useFade(50, 22);
-  const subtitleY = useSlideUp(50, 200);
-
-  const tagScale = spring({ frame: frame - 70, fps, config: { damping: 14, stiffness: 130 } });
-  const tagOpacity = useFade(70, 15);
+  const badgeY = useSlideUp(8, 180, 60);
+  const badgeOpacity = useFade(8, 16);
+  const titleY = useSlideUp(22, 160, 100);
+  const titleOpacity = useFade(22, 18);
+  const subtitleOpacity = useFade(45, 20);
+  const subtitleY = useSlideUp(45, 180, 80);
+  const tagOpacity = useFade(65, 15);
+  const tagY = useSlideUp(65, 200, 60);
 
   return (
     <AbsoluteFill>
-      {/* Foto prodotto come sfondo con Ken Burns */}
       <AbsoluteFill style={{ overflow: 'hidden' }}>
         <Img
           src={staticFile('patatine-rosmarino-gallette.jpg')}
@@ -90,25 +81,24 @@ const Scene1: React.FC = () => {
         />
       </AbsoluteFill>
 
-      {/* Overlay gradiente brand */}
+      {/* Overlay più scuro e contrastato */}
       <AbsoluteFill
         style={{
           background: `linear-gradient(
             to bottom,
-            rgba(26,74,26,0.55) 0%,
-            rgba(26,74,26,0.15) 35%,
-            rgba(26,74,26,0.10) 55%,
-            rgba(10,30,10,0.85) 100%
+            rgba(10,30,10,0.72) 0%,
+            rgba(26,74,26,0.10) 38%,
+            rgba(10,20,10,0.92) 100%
           )`,
           opacity: overlayOpacity,
         }}
       />
 
-      {/* Badge BIO in alto */}
+      {/* Badge BIO — più grande e impattante */}
       <div
         style={{
           position: 'absolute',
-          top: 90,
+          top: 100,
           left: 0,
           right: 0,
           display: 'flex',
@@ -119,24 +109,25 @@ const Scene1: React.FC = () => {
       >
         <div
           style={{
-            background: GOLD,
-            borderRadius: 100,
-            paddingTop: 14,
-            paddingBottom: 14,
-            paddingLeft: 44,
-            paddingRight: 44,
+            background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+            borderRadius: 120,
+            paddingTop: 18,
+            paddingBottom: 18,
+            paddingLeft: 56,
+            paddingRight: 56,
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
+            gap: 14,
+            boxShadow: '0 8px 32px rgba(212,160,23,0.5)',
           }}
         >
-          <span style={{ fontSize: 32 }}>🌱</span>
+          <span style={{ fontSize: 38 }}>🌱</span>
           <span
             style={{
               color: GREEN_DARK,
               fontFamily: 'Georgia, serif',
               fontWeight: 700,
-              fontSize: 30,
+              fontSize: 36,
               letterSpacing: 3,
               textTransform: 'uppercase' as const,
             }}
@@ -153,13 +144,13 @@ const Scene1: React.FC = () => {
           bottom: 0,
           left: 0,
           right: 0,
-          padding: '0 64px 100px',
+          padding: '0 56px 90px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20,
+          gap: 24,
         }}
       >
-        {/* Nome prodotto */}
+        {/* Nome prodotto — font più grande */}
         <div
           style={{
             opacity: titleOpacity,
@@ -170,22 +161,24 @@ const Scene1: React.FC = () => {
             style={{
               color: CREAM,
               fontFamily: 'Georgia, serif',
-              fontSize: 76,
+              fontSize: 92,
               fontWeight: 700,
-              lineHeight: 1.05,
-              textShadow: '0 3px 20px rgba(0,0,0,0.5)',
+              lineHeight: 1.0,
+              textShadow: '0 4px 28px rgba(0,0,0,0.7)',
+              letterSpacing: -1,
             }}
           >
             Patatine
           </div>
           <div
             style={{
-              color: GOLD,
+              color: GOLD_LIGHT,
               fontFamily: 'Georgia, serif',
-              fontSize: 76,
+              fontSize: 92,
               fontWeight: 700,
-              lineHeight: 1.05,
-              textShadow: '0 3px 20px rgba(0,0,0,0.5)',
+              lineHeight: 1.0,
+              textShadow: '0 4px 28px rgba(0,0,0,0.7)',
+              letterSpacing: -1,
             }}
           >
             Mais Antichi
@@ -199,10 +192,10 @@ const Scene1: React.FC = () => {
             transform: `translateY(${subtitleY}px)`,
             color: CREAM,
             fontFamily: 'Georgia, serif',
-            fontSize: 34,
+            fontSize: 38,
             fontStyle: 'italic',
             lineHeight: 1.4,
-            textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+            textShadow: '0 2px 16px rgba(0,0,0,0.7)',
           }}
         >
           Mais Spinato & Rostrato Rosso
@@ -210,34 +203,39 @@ const Scene1: React.FC = () => {
           dalla Val Seriana
         </div>
 
-        {/* Tag ingredienti */}
+        {/* Tag ingredienti — più grandi e con sfondo pieno */}
         <div
           style={{
             display: 'flex',
-            gap: 16,
+            gap: 14,
             flexWrap: 'wrap' as const,
             opacity: tagOpacity,
-            transform: `scale(${tagScale})`,
+            transform: `translateY(${tagY}px)`,
           }}
         >
-          {['🌽 99% Mais', '🧂 Sale', '🚫 Senza Glutine'].map((t) => (
+          {[
+            { label: '🌽 99% Mais', bg: 'rgba(212,160,23,0.25)' },
+            { label: '🧂 Sale', bg: 'rgba(212,160,23,0.25)' },
+            { label: '🚫 Senza Glutine', bg: 'rgba(255,255,255,0.15)' },
+          ].map((t) => (
             <div
-              key={t}
+              key={t.label}
               style={{
-                background: 'rgba(255,255,255,0.18)',
-                border: `1.5px solid ${GOLD}`,
-                borderRadius: 40,
-                paddingTop: 10,
-                paddingBottom: 10,
-                paddingLeft: 24,
-                paddingRight: 24,
+                background: t.bg,
+                border: `2px solid ${GOLD}`,
+                borderRadius: 50,
+                paddingTop: 14,
+                paddingBottom: 14,
+                paddingLeft: 30,
+                paddingRight: 30,
                 color: WHITE,
                 fontFamily: 'Georgia, serif',
-                fontSize: 28,
-                backdropFilter: 'blur(6px)',
+                fontSize: 32,
+                fontWeight: 600,
+                backdropFilter: 'blur(8px)',
               }}
             >
-              {t}
+              {t.label}
             </div>
           ))}
         </div>
@@ -252,7 +250,6 @@ const Scene2: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Pan leggero sull'immagine
   const imgX = interpolate(frame, [0, SCENE2], [0, -30], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
@@ -263,8 +260,8 @@ const Scene2: React.FC = () => {
   });
 
   const overlayOpacity = useFade(0, 20);
-  const topLabelOpacity = useFade(8, 18);
-  const topLabelY = useSlideUp(8, 180);
+  const topLabelOpacity = useFade(6, 16);
+  const topLabelY = useSlideUp(6, 160, 70);
 
   const features = [
     { icon: '🌿', title: 'Biologico certificato', sub: 'UE Reg. 2018/848' },
@@ -274,7 +271,6 @@ const Scene2: React.FC = () => {
 
   return (
     <AbsoluteFill>
-      {/* Foto dettaglio mais */}
       <AbsoluteFill style={{ overflow: 'hidden' }}>
         <Img
           src={staticFile('patatine-mais-dettaglio.jpg')}
@@ -288,39 +284,38 @@ const Scene2: React.FC = () => {
         />
       </AbsoluteFill>
 
-      {/* Overlay */}
       <AbsoluteFill
         style={{
           background: `linear-gradient(
             to bottom,
-            rgba(10,30,10,0.70) 0%,
-            rgba(26,74,26,0.20) 30%,
-            rgba(10,30,10,0.78) 100%
+            rgba(10,30,10,0.80) 0%,
+            rgba(26,74,26,0.15) 30%,
+            rgba(10,20,10,0.88) 100%
           )`,
           opacity: overlayOpacity,
         }}
       />
 
-      {/* Label in alto */}
+      {/* Titolo in alto — più grande */}
       <div
         style={{
           position: 'absolute',
-          top: 80,
+          top: 90,
           left: 0,
           right: 0,
           textAlign: 'center',
           opacity: topLabelOpacity,
           transform: `translateY(${topLabelY}px)`,
-          padding: '0 60px',
+          padding: '0 56px',
         }}
       >
         <div
           style={{
-            color: GOLD,
+            color: GOLD_LIGHT,
             fontFamily: 'Georgia, serif',
-            fontSize: 52,
+            fontSize: 64,
             fontWeight: 700,
-            textShadow: '0 2px 16px rgba(0,0,0,0.6)',
+            textShadow: '0 3px 20px rgba(0,0,0,0.7)',
           }}
         >
           Qualità che si vede
@@ -329,36 +324,36 @@ const Scene2: React.FC = () => {
           style={{
             color: CREAM,
             fontFamily: 'Georgia, serif',
-            fontSize: 32,
+            fontSize: 36,
             fontStyle: 'italic',
-            marginTop: 12,
-            textShadow: '0 2px 12px rgba(0,0,0,0.5)',
+            marginTop: 14,
+            textShadow: '0 2px 14px rgba(0,0,0,0.6)',
           }}
         >
           Coltivato con rispetto per la terra
         </div>
       </div>
 
-      {/* Cards features in basso */}
+      {/* Cards features — più grandi, più visibili */}
       <div
         style={{
           position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
-          padding: '0 48px 80px',
+          padding: '0 44px 80px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 18,
+          gap: 22,
         }}
       >
         {features.map((f, i) => {
-          const cardOpacity = useFade(25 + i * 18, 16);
-          const cardY = useSlideUp(25 + i * 18, 200);
+          const cardOpacity = useFade(20 + i * 16, 14);
+          const cardY = useSlideUp(20 + i * 16, 180, 70);
           const cardScale = spring({
-            frame: frame - (25 + i * 18),
+            frame: frame - (20 + i * 16),
             fps,
-            config: { damping: 200 },
+            config: { damping: 18, stiffness: 150 },
           });
 
           return (
@@ -367,39 +362,40 @@ const Scene2: React.FC = () => {
               style={{
                 opacity: cardOpacity,
                 transform: `translateY(${cardY}px) scale(${cardScale})`,
-                background: 'rgba(26,74,26,0.82)',
-                border: `1.5px solid rgba(212,160,23,0.6)`,
-                borderRadius: 22,
-                paddingTop: 22,
-                paddingBottom: 22,
-                paddingLeft: 32,
-                paddingRight: 32,
+                background: 'rgba(15,45,15,0.90)',
+                border: `2.5px solid ${GOLD}`,
+                borderRadius: 28,
+                paddingTop: 28,
+                paddingBottom: 28,
+                paddingLeft: 36,
+                paddingRight: 36,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 24,
-                backdropFilter: 'blur(8px)',
+                gap: 28,
+                backdropFilter: 'blur(12px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}
             >
-              <span style={{ fontSize: 52, flexShrink: 0 }}>{f.icon}</span>
+              <span style={{ fontSize: 64, flexShrink: 0 }}>{f.icon}</span>
               <div>
                 <div
                   style={{
                     color: WHITE,
                     fontFamily: 'Georgia, serif',
-                    fontSize: 36,
+                    fontSize: 44,
                     fontWeight: 700,
-                    lineHeight: 1.2,
+                    lineHeight: 1.15,
                   }}
                 >
                   {f.title}
                 </div>
                 <div
                   style={{
-                    color: GOLD,
+                    color: GOLD_LIGHT,
                     fontFamily: 'Georgia, serif',
-                    fontSize: 26,
+                    fontSize: 32,
                     fontStyle: 'italic',
-                    marginTop: 4,
+                    marginTop: 6,
                   }}
                 >
                   {f.sub}
@@ -425,26 +421,24 @@ const Scene3: React.FC = () => {
   });
 
   const overlayOpacity = useFade(0, 22);
-  const starOpacity = useFade(5, 18);
-  const starY = useSlideUp(5, 180);
-  const headlineOpacity = useFade(22, 20);
-  const headlineY = useSlideUp(22, 170);
-  const priceScale = spring({ frame: frame - 55, fps, config: { damping: 12, stiffness: 140 } });
-  const priceOpacity = useFade(55, 18);
+  const starOpacity = useFade(5, 16);
+  const starY = useSlideUp(5, 160, 60);
+  const headlineOpacity = useFade(20, 18);
+  const headlineY = useSlideUp(20, 160, 90);
+  const priceScale = spring({ frame: frame - 50, fps, config: { damping: 12, stiffness: 140 } });
+  const priceOpacity = useFade(50, 16);
 
-  // Pulsazione leggera sul pulsante CTA
   const pulse = interpolate(
     Math.sin((frame / fps) * Math.PI * 1.8),
     [-1, 1],
-    [0.97, 1.03],
+    [0.96, 1.04],
   );
 
-  const ctaOpacity = useFade(85, 20);
-  const ctaY = useSlideUp(85, 200);
+  const ctaScale = spring({ frame: frame - 85, fps, config: { damping: 14, stiffness: 160 } });
+  const ctaOpacity = useFade(85, 18);
 
   return (
     <AbsoluteFill>
-      {/* Foto lifestyle */}
       <AbsoluteFill style={{ overflow: 'hidden' }}>
         <Img
           src={staticFile('patatine-rosmarino-dettaglio.jpg')}
@@ -458,24 +452,23 @@ const Scene3: React.FC = () => {
         />
       </AbsoluteFill>
 
-      {/* Overlay scuro brand */}
       <AbsoluteFill
         style={{
           background: `linear-gradient(
             to bottom,
-            rgba(10,30,10,0.80) 0%,
-            rgba(26,74,26,0.25) 40%,
-            rgba(10,20,10,0.90) 100%
+            rgba(10,30,10,0.85) 0%,
+            rgba(26,74,26,0.20) 38%,
+            rgba(5,15,5,0.95) 100%
           )`,
           opacity: overlayOpacity,
         }}
       />
 
-      {/* Stelle + rating in alto */}
+      {/* Stelle + rating — più grandi */}
       <div
         style={{
           position: 'absolute',
-          top: 80,
+          top: 90,
           left: 0,
           right: 0,
           textAlign: 'center',
@@ -483,35 +476,36 @@ const Scene3: React.FC = () => {
           transform: `translateY(${starY}px)`,
         }}
       >
-        <div style={{ fontSize: 44, letterSpacing: 4 }}>⭐⭐⭐⭐⭐</div>
+        <div style={{ fontSize: 56, letterSpacing: 6 }}>⭐⭐⭐⭐⭐</div>
         <div
           style={{
-            color: GOLD,
+            color: GOLD_LIGHT,
             fontFamily: 'Georgia, serif',
-            fontSize: 28,
+            fontSize: 34,
             fontStyle: 'italic',
-            marginTop: 8,
+            marginTop: 10,
+            textShadow: '0 2px 12px rgba(0,0,0,0.5)',
           }}
         >
           25 recensioni · Eccellente
         </div>
       </div>
 
-      {/* Contenuto centrale + basso */}
+      {/* Contenuto basso */}
       <div
         style={{
           position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
-          padding: '0 60px 90px',
+          padding: '0 52px 80px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 28,
+          gap: 26,
           alignItems: 'center',
         }}
       >
-        {/* Headline */}
+        {/* Headline — più grande */}
         <div
           style={{
             opacity: headlineOpacity,
@@ -523,48 +517,49 @@ const Scene3: React.FC = () => {
             style={{
               color: WHITE,
               fontFamily: 'Georgia, serif',
-              fontSize: 66,
+              fontSize: 76,
               fontWeight: 700,
-              lineHeight: 1.15,
-              textShadow: '0 3px 20px rgba(0,0,0,0.55)',
+              lineHeight: 1.1,
+              textShadow: '0 4px 28px rgba(0,0,0,0.7)',
             }}
           >
             Il gusto autentico
           </div>
           <div
             style={{
-              color: GOLD,
+              color: GOLD_LIGHT,
               fontFamily: 'Georgia, serif',
-              fontSize: 66,
+              fontSize: 76,
               fontWeight: 700,
-              lineHeight: 1.15,
-              textShadow: '0 3px 20px rgba(0,0,0,0.55)',
+              lineHeight: 1.1,
+              textShadow: '0 4px 28px rgba(0,0,0,0.7)',
             }}
           >
             della terra
           </div>
         </div>
 
-        {/* Badge prezzo */}
+        {/* Badge prezzo — più grande e luminoso */}
         <div
           style={{
             opacity: priceOpacity,
             transform: `scale(${priceScale * pulse})`,
-            background: GOLD,
-            borderRadius: 32,
-            paddingTop: 22,
-            paddingBottom: 22,
-            paddingLeft: 56,
-            paddingRight: 56,
+            background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+            borderRadius: 36,
+            paddingTop: 26,
+            paddingBottom: 26,
+            paddingLeft: 64,
+            paddingRight: 64,
             textAlign: 'center',
+            boxShadow: '0 10px 40px rgba(212,160,23,0.6)',
           }}
         >
           <div
             style={{
               color: GREEN_DARK,
               fontFamily: 'Georgia, serif',
-              fontSize: 28,
-              fontWeight: 600,
+              fontSize: 32,
+              fontWeight: 700,
             }}
           >
             90g · Senza Glutine
@@ -573,7 +568,7 @@ const Scene3: React.FC = () => {
             style={{
               color: GREEN_DARK,
               fontFamily: 'Georgia, serif',
-              fontSize: 82,
+              fontSize: 96,
               fontWeight: 700,
               lineHeight: 1,
             }}
@@ -582,44 +577,54 @@ const Scene3: React.FC = () => {
           </div>
         </div>
 
-        {/* CTA */}
+        {/* CTA — molto più in evidenza con spring + glow */}
         <div
           style={{
             opacity: ctaOpacity,
-            transform: `translateY(${ctaY}px)`,
+            transform: `scale(${ctaScale})`,
             textAlign: 'center',
+            width: '100%',
           }}
         >
           <div
             style={{
-              background: GREEN_MID,
-              border: `2px solid ${GOLD}`,
-              borderRadius: 50,
-              paddingTop: 22,
-              paddingBottom: 22,
-              paddingLeft: 64,
-              paddingRight: 64,
-              marginBottom: 18,
+              background: `linear-gradient(135deg, ${GREEN_MID} 0%, #3a9a3a 100%)`,
+              border: `3px solid ${GOLD_LIGHT}`,
+              borderRadius: 60,
+              paddingTop: 30,
+              paddingBottom: 30,
+              paddingLeft: 0,
+              paddingRight: 0,
+              marginBottom: 20,
+              boxShadow: `0 12px 48px rgba(45,122,45,0.6), 0 0 0 6px rgba(212,160,23,0.2)`,
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 16,
             }}
           >
+            <span style={{ fontSize: 44 }}>🛒</span>
             <span
               style={{
                 color: WHITE,
                 fontFamily: 'Georgia, serif',
-                fontSize: 40,
+                fontSize: 48,
                 fontWeight: 700,
                 letterSpacing: 1,
+                textShadow: '0 2px 8px rgba(0,0,0,0.3)',
               }}
             >
-              🛒 Ordina ora
+              Ordina ora
             </span>
           </div>
           <div
             style={{
               color: CREAM,
               fontFamily: 'Georgia, serif',
-              fontSize: 30,
+              fontSize: 32,
               fontStyle: 'italic',
+              textShadow: '0 2px 10px rgba(0,0,0,0.6)',
             }}
           >
             agrigal.com · negozio-bio-online
