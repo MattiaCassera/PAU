@@ -8,6 +8,7 @@ import {
   useVideoConfig,
   Easing,
 } from 'remotion';
+import { Audio } from '@remotion/media';
 import { TransitionSeries, linearTiming, springTiming } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import { wipe } from '@remotion/transitions/wipe';
@@ -638,8 +639,25 @@ const Scene3: React.FC = () => {
 // ─── Composizione principale ───────────────────────────────────────────────
 
 export const PatatineMaisAntichi: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { durationInFrames, fps } = useVideoConfig();
+
+  // Fade-in 1s all'inizio, fade-out 1.5s prima della fine
+  const volume = interpolate(
+    frame,
+    [0, 1 * fps, durationInFrames - 1.5 * fps, durationInFrames],
+    [0, 0.35, 0.35, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+  );
+
   return (
-    <TransitionSeries>
+    <>
+      <Audio
+        src={staticFile('background-music.mp3')}
+        volume={volume}
+        loop
+      />
+      <TransitionSeries>
       <TransitionSeries.Sequence durationInFrames={SCENE1}>
         <Scene1 />
       </TransitionSeries.Sequence>
@@ -662,5 +680,6 @@ export const PatatineMaisAntichi: React.FC = () => {
         <Scene3 />
       </TransitionSeries.Sequence>
     </TransitionSeries>
+    </>
   );
 };
