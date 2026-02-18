@@ -1,5 +1,6 @@
 import { Composition, Folder } from 'remotion';
 import { GallettaMais } from './GallettaMais';
+import { PatatineMaisAntichi } from './PatatineMaisAntichi';
 import { WhistleBike } from './WhistleBike';
 import { WhistleBikeH } from './WhistleBikeH';
 
@@ -11,6 +12,14 @@ export const RemotionRoot = () => {
           id="GallettaMais"
           component={GallettaMais}
           durationInFrames={390}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="PatatineMaisAntichi"
+          component={PatatineMaisAntichi}
+          durationInFrames={450}
           fps={30}
           width={1080}
           height={1920}
